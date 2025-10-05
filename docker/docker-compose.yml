@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  tmrl-server:
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    container_name: tmrl-server
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - tmrl_data:/TmrlData
+    ports:
+      - "5555:5555"
+    command: ["bash", "-lc", "python /app/entrypoints/server.py"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 5555), timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  tmrl-trainer:
+    build:
+      context: ..
+      dockerfile: docker/trainer.Dockerfile
+    container_name: tmrl-trainer
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - tmrl_data:/TmrlData
+    ports:
+      - "5556:5556"
+    command: ["bash", "-lc", "python /app/entrypoints/standalone_trainer.py"]
+    depends_on:
+      tmrl-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Mock rollout worker for testing (replace with actual game client)
+  tmrl-rollout:
+    build:
+      context: ..
+      dockerfile: docker/rollout.Dockerfile
+    container_name: tmrl-rollout
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DISPLAY=${DISPLAY:-:0}
+    volumes:
+      - tmrl_data:/TmrlData
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: ["bash", "-lc", "python /app/entrypoints/rollout.py"]
+    depends_on:
+      tmrl-trainer:
+        condition: service_started
+    restart: unless-stopped
+    profiles:
+      - with-rollout
+
+  tensorboard:
+    image: tensorflow/tensorflow:2.16.1
+    container_name: tmrl-tensorboard
+    command: ["bash", "-lc", "tensorboard --logdir /TmrlData/logs --host 0.0.0.0 --port 6006"]
+    ports:
+      - "6006:6006"
+    volumes:
+      - tmrl_data:/TmrlData
+    restart: unless-stopped
+
+volumes:
+  tmrl_data:
+    driver: local
+

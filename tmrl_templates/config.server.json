@@ -1,0 +1,14 @@
+{
+  "PASSWORD": "change-me",
+  "TLS": false,
+  "TLS_CREDENTIALS_DIRECTORY": "",
+  "SERVER": {
+    "IP": "0.0.0.0",
+    "PORT": 5555
+  },
+  "TRAINER": {
+    "IP": "tmrl-trainer",
+    "PORT": 5556
+  }
+}
+
