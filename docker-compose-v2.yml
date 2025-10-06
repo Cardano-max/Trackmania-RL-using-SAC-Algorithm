@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+  # Environment Container - TrackMania Simulation
+  environment:
+    build:
+      context: ./environment
+      dockerfile: Dockerfile
+    container_name: trackmania-environment
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DISPLAY=:0
+    volumes:
+      - shared_data:/data
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    ports:
+      - "8080:8080"  # API
+      - "5900:5900"  # VNC for graphics
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trackmania-net
+
+  # Model Container - SAC Agent
+  model:
+    build:
+      context: ./model
+      dockerfile: Dockerfile
+    container_name: trackmania-model
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - shared_data:/data
+    ports:
+      - "8081:8081"  # API
+    depends_on:
+      environment:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trackmania-net
+
+  # Viewer Container - Replay Visualization
+  viewer:
+    build:
+      context: ./viewer
+      dockerfile: Dockerfile
+    container_name: trackmania-viewer
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - shared_data:/data
+    ports:
+      - "3000:3000"  # Web interface
+    depends_on:
+      - environment
+      - model
+    restart: unless-stopped
+    networks:
+      - trackmania-net
+
+  # TensorBoard for monitoring
+  tensorboard:
+    image: tensorflow/tensorflow:2.16.1
+    container_name: trackmania-tensorboard
+    command: ["bash", "-lc", "tensorboard --logdir /data/logs --host 0.0.0.0 --port 6006"]
+    ports:
+      - "6006:6006"
+    volumes:
+      - shared_data:/data
+    restart: unless-stopped
+    networks:
+      - trackmania-net
+
+volumes:
+  shared_data:
+    driver: local
+
+networks:
+  trackmania-net:
+    driver: bridge
