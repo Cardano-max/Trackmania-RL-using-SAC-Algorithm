@@ -24,7 +24,9 @@ WORKDIR /app
 
 # Copy model server
 COPY model_server.py /app/
-COPY requirements.txt /app/ 2>/dev/null || echo "torch\nfastapi\nuvicorn[standard]\naiohttp\nnumpy\npydantic" > /app/requirements.txt
+
+# Create requirements file
+RUN echo "torch\nfastapi\nuvicorn[standard]\naiohttp\nnumpy\npydantic" > /app/requirements.txt
 
 # Install any additional requirements
 RUN pip install --no-cache-dir -r /app/requirements.txt

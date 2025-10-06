@@ -23,7 +23,9 @@ WORKDIR /app
 
 # Copy viewer server
 COPY viewer_server.py /app/
-COPY requirements.txt /app/ 2>/dev/null || echo "fastapi\nuvicorn[standard]\naiohttp\nnumpy\npydantic\nwebsockets" > /app/requirements.txt
+
+# Create requirements file
+RUN echo "fastapi\nuvicorn[standard]\naiohttp\nnumpy\npydantic\nwebsockets" > /app/requirements.txt
 
 # Install any additional requirements
 RUN pip install --no-cache-dir -r /app/requirements.txt

@@ -5,18 +5,6 @@ ENV PYTHONUNBUFFERED=1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3-dev \
-    build-essential \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    xvfb \
-    x11vnc \
-    fluxbox \
-    wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -34,7 +22,9 @@ WORKDIR /app
 
 # Copy environment server
 COPY environment_server.py /app/
-COPY requirements.txt /app/ 2>/dev/null || echo "fastapi\nuvicorn[standard]\naiohttp\nnumpy\npydantic" > /app/requirements.txt
+
+# Create requirements file
+RUN echo "fastapi\nuvicorn[standard]\naiohttp\nnumpy\npydantic" > /app/requirements.txt
 
 # Install any additional requirements
 RUN pip install --no-cache-dir -r /app/requirements.txt
