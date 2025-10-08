@@ -1,4 +1,5 @@
 # TrackMania RL using SAC Algorithm
+![WhatsApp Image 2025-10-06 at 20 23 28](https://github.com/user-attachments/assets/8b271bba-750f-491f-9fde-4aa588af5393)
 
 A complete implementation of Soft Actor-Critic (SAC) and Q-Learning for autonomous driving in TrackMania. Built from scratch with production-ready Docker infrastructure, real-time 3D visualization, and comprehensive testing.
 
@@ -6,6 +7,7 @@ A complete implementation of Soft Actor-Critic (SAC) and Q-Learning for autonomo
 **Implementation**: From mathematical foundations without AI assistance
 
 This repository provides a complete, modular Docker setup for training RL agents in TrackMania using the TMRL framework. It includes both the official TMRL implementation and a standalone SAC trainer for testing without the actual game.
+![WhatsApp Image 2025-10-06 at 20 23 57](https://github.com/user-attachments/assets/83f9136a-c5cf-4fd0-81fc-50b9b2cbec70)
 
 ## ✨ New Features
 
