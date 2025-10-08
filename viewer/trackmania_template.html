@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TrackMania Racing Viewer</title>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #1e3c72, #2a5298); 
+            color: white; 
+            overflow: hidden;
+        }
+        
+        .container { 
+            display: flex; 
+            height: 100vh; 
+        }
+        
+        .sidebar { 
+            width: 280px; 
+            background: rgba(0,0,0,0.8); 
+            padding: 20px; 
+            overflow-y: auto; 
+            backdrop-filter: blur(10px);
+        }
+        
+        .main { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        .viewer { 
+            flex: 1; 
+            background: #0a4d0a; 
+            position: relative; 
+            overflow: hidden;
+        }
+        
+        .controls { 
+            height: 80px; 
+            background: rgba(0,0,0,0.9); 
+            display: flex; 
+            align-items: center; 
+            padding: 0 20px; 
+            gap: 15px; 
+            backdrop-filter: blur(10px);
+        }
+        
+        .race-item { 
+            background: rgba(255,255,255,0.1); 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .race-item:hover { 
+            background: rgba(255,255,255,0.2); 
+            transform: translateY(-2px);
+        }
+        
+        .race-item.active {
+            background: rgba(52, 152, 219, 0.3);
+            border-color: #3498db;
+        }
+        
+        /* Track styling */
+        .track {
+            position: absolute;
+            border: 8px solid #444;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.1);
+        }
+        
+        .track-lines {
+            position: absolute;
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 50%;
+        }
+        
+        /* Car styling */
+        .car {
+            position: absolute;
+            width: 24px;
+            height: 16px;
+            transform-origin: center;
+            transition: all 0.05s ease;
+            z-index: 100;
+        }
+        
+        .car::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, var(--car-color), rgba(255,255,255,0.3));
+            border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.8);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        
+        .car::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 4px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 2px;
+        }
+        
+        /* Racing HUD */
+        .hud {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            min-width: 250px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .leaderboard {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .car-info {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            padding: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+        }
+        
+        .car-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        button { 
+            padding: 12px 20px; 
+            background: linear-gradient(135deg, #007acc, #005999); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover { 
+            background: linear-gradient(135deg, #005999, #004477); 
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        button:disabled { 
+            background: #666; 
+            cursor: not-allowed; 
+            transform: none;
+        }
+        
+        input[type="range"] { 
+            flex: 1; 
+            margin: 0 15px; 
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            outline: none;
+        }
+        
+        .speed-display { 
+            min-width: 60px; 
+            text-align: center; 
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .lap-counter {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border: 2px solid #3498db;
+        }
+        
+        .checkered-flag {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2em;
+            animation: wave 2s ease-in-out infinite;
+        }
+        
+        @keyframes wave {
+            0%, 100% { transform: translate(-50%, -50%) rotate(-5deg); }
+            50% { transform: translate(-50%, -50%) rotate(5deg); }
+        }
+        
+        .finish-line {
+            position: absolute;
+            width: 4px;
+            height: 60px;
+            background: repeating-linear-gradient(
+                0deg,
+                black 0px,
+                black 8px,
+                white 8px,
+                white 16px
+            );
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="title">🏁 TrackMania RL</div>
+            <h3>Race Replays</h3>
+            <div id="raceList">Loading races...</div>
+        </div>
+        <div class="main">
+            <div class="viewer" id="viewer">
+                <!-- Track will be drawn here -->
+                <div class="leaderboard" id="leaderboard">
+                    <h4>🏆 Leaderboard</h4>
+                    <div id="carsList"></div>
+                </div>
+                
+                <div class="hud" id="hud">
+                    <div><strong>Frame:</strong> <span id="frameInfo">0/0</span></div>
+                    <div><strong>Time:</strong> <span id="timeInfo">0.00s</span></div>
+                    <div><strong>Cars:</strong> <span id="carInfo">0</span></div>
+                    <div><strong>Speed:</strong> <span id="speedInfo">1.0x</span></div>
+                </div>
+                
+                <div class="lap-counter" id="lapCounter">
+                    Lap 1
+                </div>
+            </div>
+            <div class="controls">
+                <button id="playBtn" onclick="togglePlay()">▶️ Play</button>
+                <button onclick="setSpeed(0.5)">0.5x</button>
+                <button onclick="setSpeed(1.0)">1x</button>
+                <button onclick="setSpeed(2.0)">2x</button>
+                <button onclick="setSpeed(4.0)">4x</button>
+                <div class="speed-display" id="speedDisplay">1.0x</div>
+                <input type="range" id="frameSlider" min="0" max="100" value="0" onchange="setFrame(this.value)">
+                <button onclick="resetRace()">🔄 Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRace = null;
+        let playing = false;
+        let cars = {};
+        let trackDrawn = false;
+        
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                updateViewer(data);
+            };
+            
+            ws.onclose = function() {
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+        
+        function drawTrack(trackData) {
+            if (trackDrawn) return;
+            
+            const viewer = document.getElementById('viewer');
+            const viewerRect = viewer.getBoundingClientRect();
+            
+            // Outer track boundary
+            const outerTrack = document.createElement('div');
+            outerTrack.className = 'track';
+            outerTrack.style.left = (trackData.center_x - trackData.width - 20) + 'px';
+            outerTrack.style.top = (trackData.center_y - trackData.height - 20) + 'px';
+            outerTrack.style.width = (trackData.width * 2 + 40) + 'px';
+            outerTrack.style.height = (trackData.height * 2 + 40) + 'px';
+            outerTrack.style.borderColor = '#fff';
+            viewer.appendChild(outerTrack);
+            
+            // Inner track boundary
+            const innerTrack = document.createElement('div');
+            innerTrack.className = 'track';
+            innerTrack.style.left = (trackData.center_x - trackData.width + 20) + 'px';
+            innerTrack.style.top = (trackData.center_y - trackData.height + 20) + 'px';
+            innerTrack.style.width = (trackData.width * 2 - 40) + 'px';
+            innerTrack.style.height = (trackData.height * 2 - 40) + 'px';
+            outerTrack.style.borderColor = '#fff';
+            viewer.appendChild(innerTrack);
+            
+            // Center line
+            const centerLine = document.createElement('div');
+            centerLine.className = 'track-lines';
+            centerLine.style.left = (trackData.center_x - trackData.width) + 'px';
+            centerLine.style.top = (trackData.center_y - trackData.height) + 'px';
+            centerLine.style.width = (trackData.width * 2) + 'px';
+            centerLine.style.height = (trackData.height * 2) + 'px';
+            viewer.appendChild(centerLine);
+            
+            // Finish line
+            const finishLine = document.createElement('div');
+            finishLine.className = 'finish-line';
+            finishLine.style.left = (trackData.center_x + trackData.width) + 'px';
+            finishLine.style.top = (trackData.center_y - 30) + 'px';
+            viewer.appendChild(finishLine);
+            
+            // Checkered flag
+            const flag = document.createElement('div');
+            flag.className = 'checkered-flag';
+            flag.innerHTML = '🏁';
+            flag.style.left = (trackData.center_x + trackData.width + 30) + 'px';
+            flag.style.top = (trackData.center_y - 30) + 'px';
+            viewer.appendChild(flag);
+            
+            trackDrawn = true;
+        }
+        
+        function updateViewer(data) {
+            if (data.cars && data.track) {
+                const viewer = document.getElementById('viewer');
+                
+                // Draw track once
+                drawTrack(data.track);
+                
+                // Clear previous car elements
+                viewer.querySelectorAll('.car').forEach(el => el.remove());
+                
+                // Draw cars
+                data.cars.forEach(car => {
+                    const carEl = document.createElement('div');
+                    carEl.className = 'car';
+                    carEl.style.setProperty('--car-color', car.color);
+                    carEl.style.left = (car.x - 12) + 'px';
+                    carEl.style.top = (car.y - 8) + 'px';
+                    carEl.style.transform = `rotate(${car.rotation}rad)`;
+                    carEl.title = `${car.name}: ${car.speed.toFixed(1)} km/h`;
+                    viewer.appendChild(carEl);
+                    
+                    // Store car data
+                    cars[car.id] = car;
+                });
+                
+                // Update leaderboard
+                updateLeaderboard(data.cars);
+                
+                // Update HUD
+                document.getElementById('frameInfo').textContent = `${data.frame_id}/${data.total_frames}`;
+                document.getElementById('timeInfo').textContent = (data.frame_id * 0.05).toFixed(2) + 's';
+                document.getElementById('carInfo').textContent = data.cars.length;
+                document.getElementById('speedInfo').textContent = data.playback_speed + 'x';
+                
+                // Update slider
+                const slider = document.getElementById('frameSlider');
+                slider.max = data.total_frames - 1;
+                slider.value = data.frame_id;
+                
+                // Update lap counter
+                const maxLap = Math.max(...data.cars.map(car => car.lap || 1));
+                document.getElementById('lapCounter').textContent = `Lap ${maxLap}`;
+                
+                playing = data.playing;
+                document.getElementById('playBtn').innerHTML = playing ? '⏸️ Pause' : '▶️ Play';
+            }
+        }
+        
+        function updateLeaderboard(carsData) {
+            const carsList = document.getElementById('carsList');
+            
+            // Sort cars by track position (or lap time)
+            const sortedCars = [...carsData].sort((a, b) => (b.track_position || 0) - (a.track_position || 0));
+            
+            carsList.innerHTML = '';
+            sortedCars.forEach((car, index) => {
+                const carInfo = document.createElement('div');
+                carInfo.className = 'car-info';
+                carInfo.innerHTML = `
+                    <div class="car-color" style="background: ${car.color}"></div>
+                    <div>
+                        <div><strong>${index + 1}. ${car.name}</strong></div>
+                        <div style="font-size: 0.9em; opacity: 0.8;">
+                            ${car.speed.toFixed(1)} km/h | ${car.lap_time.toFixed(2)}s
+                        </div>
+                    </div>
+                `;
+                carsList.appendChild(carInfo);
+            });
+        }
+        
+        async function loadRaces() {
+            try {
+                const response = await fetch('/api/races');
+                const data = await response.json();
+                
+                const raceList = document.getElementById('raceList');
+                raceList.innerHTML = '';
+                
+                if (data.races.length === 0) {
+                    raceList.innerHTML = '<div style="opacity: 0.7;">No races available</div>';
+                    return;
+                }
+                
+                data.races.forEach(race => {
+                    const item = document.createElement('div');
+                    item.className = 'race-item';
+                    item.innerHTML = `
+                        <div><strong>🏁 Race ${race.id.substring(0, 8)}</strong></div>
+                        <div style="opacity: 0.8;">${race.frames} frames</div>
+                        <div style="opacity: 0.8;">${race.duration.toFixed(1)}s duration</div>
+                        <div style="font-size: 0.8em; opacity: 0.6; margin-top: 5px;">
+                            ${new Date(race.recorded_at).toLocaleString()}
+                        </div>
+                    `;
+                    item.onclick = () => loadRace(race.id, item);
+                    raceList.appendChild(item);
+                });
+                
+                // Auto-load the first race
+                if (data.races.length > 0) {
+                    loadRace(data.races[0].id, raceList.children[0]);
+                }
+            } catch (error) {
+                document.getElementById('raceList').innerHTML = '<div style="color: #e74c3c;">Error loading races</div>';
+            }
+        }
+        
+        async function loadRace(raceId, itemEl) {
+            try {
+                // Clear active state
+                document.querySelectorAll('.race-item').forEach(el => el.classList.remove('active'));
+                if (itemEl) itemEl.classList.add('active');
+                
+                await fetch(`/api/load/${raceId}`, { method: 'POST' });
+                currentRace = raceId;
+                trackDrawn = false; // Reset track drawing
+                
+                // Clear viewer
+                const viewer = document.getElementById('viewer');
+                viewer.querySelectorAll('.track, .track-lines, .finish-line, .checkered-flag, .car').forEach(el => el.remove());
+                
+                document.title = `TrackMania Racing Viewer - Race ${raceId.substring(0, 8)}`;
+            } catch (error) {
+                alert('Error loading race: ' + error.message);
+            }
+        }
+        
+        async function togglePlay() {
+            if (!currentRace) {
+                alert('Please select a race first');
+                return;
+            }
+            
+            const endpoint = playing ? '/api/pause' : '/api/play';
+            await fetch(endpoint, { method: 'POST' });
+        }
+        
+        async function setSpeed(speed) {
+            await fetch(`/api/speed/${speed}`, { method: 'POST' });
+            document.getElementById('speedDisplay').textContent = speed + 'x';
+        }
+        
+        async function setFrame(frameId) {
+            await fetch(`/api/frame/${frameId}`, { method: 'POST' });
+        }
+        
+        async function resetRace() {
+            if (currentRace) {
+                await fetch('/api/frame/0', { method: 'POST' });
+                await fetch('/api/pause', { method: 'POST' });
+            }
+        }
+        
+        // Initialize
+        connectWebSocket();
+        loadRaces();
+    </script>
+</body>
+</html>

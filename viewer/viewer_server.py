@@ -37,7 +37,7 @@ class Agent:
 class RaceViewer:
     """Handles race visualization and replay"""
     
-    def __init__(self, data_dir: str = "/data"):
+    def __init__(self, data_dir: str = "./data"):
         self.data_dir = Path(data_dir)
         self.agents: Dict[str, Agent] = {}
         self.current_race_id: Optional[str] = None
@@ -203,8 +203,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve static files
-app.mount("/static", StaticFiles(directory="/app/static"), name="static")
+# Create static directory if it doesn't exist
+static_dir = Path("./static")
+static_dir.mkdir(exist_ok=True)
+
+# Serve static files  
+app.mount("/static", StaticFiles(directory="./static"), name="static")
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

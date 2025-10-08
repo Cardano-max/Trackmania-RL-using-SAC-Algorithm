@@ -243,7 +243,7 @@ class TrackManiaEnvironment:
 class RaceRecorder:
     """Records and manages race replays"""
     
-    def __init__(self, data_dir: str = "/data"):
+    def __init__(self, data_dir: str = "./data"):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
         self.current_race_id: Optional[str] = None

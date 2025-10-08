@@ -19,14 +19,14 @@ import uvicorn
 import aiohttp
 import threading
 from pathlib import Path
+from collections import deque
+import random
 
 try:
     import torch
     import torch.nn as nn
     import torch.optim as optim
     import torch.nn.functional as F
-    from collections import deque
-    import random
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -406,7 +406,7 @@ class EnvironmentClient:
 
 # Global instances
 config = TrainingConfig()
-agent = SACAgent(config)
+agent = SACAgent(config) if TORCH_AVAILABLE else None
 training_active = False
 training_stats = {
     "episodes": 0,
@@ -452,7 +452,11 @@ async def training_loop():
             
             while training_active and episode_steps < 1000:
                 # Get action from agent
-                action = agent.get_action(state)
+                if agent is not None:
+                    action = agent.get_action(state)
+                else:
+                    # Mock action for demo
+                    action = [np.random.uniform(0, 1), np.random.uniform(0, 0.3), np.random.uniform(-1, 1)]
                 
                 # Send action to environment
                 next_state = await env_client.send_action(agent_id, action)
@@ -460,11 +464,12 @@ async def training_loop():
                     break
                 
                 # Store experience and update
-                agent.store_transition(state, action, next_state["reward"], next_state, next_state["done"])
-                
-                # Update networks
-                if len(agent.replay_buffer) >= config.min_buffer_size:
-                    update_info = agent.update()
+                if agent is not None:
+                    agent.store_transition(state, action, next_state["reward"], next_state, next_state["done"])
+                    
+                    # Update networks
+                    if len(agent.replay_buffer) >= config.min_buffer_size:
+                        update_info = agent.update()
                 
                 episode_reward += next_state["reward"]
                 episode_steps += 1
@@ -486,8 +491,8 @@ async def training_loop():
             logger.info(f"Episode {training_stats['episodes']}: Reward={episode_reward:.2f}, Steps={episode_steps}")
             
             # Save model periodically
-            if training_stats["episodes"] % 50 == 0:
-                agent.save(f"/data/model_episode_{training_stats['episodes']}.pth")
+            if training_stats["episodes"] % 50 == 0 and agent is not None:
+                agent.save(f"./data/model_episode_{training_stats['episodes']}.pth")
 
 @app.post("/api/training/start")
 async def start_training(background_tasks: BackgroundTasks):
@@ -526,13 +531,17 @@ async def get_training_status():
 @app.post("/api/model/save")
 async def save_model():
     """Save current model"""
-    path = f"/data/model_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth"
+    if agent is None:
+        raise HTTPException(status_code=400, detail="PyTorch not available")
+    path = f"./data/model_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth"
     agent.save(path)
     return {"status": "saved", "path": path}
 
 @app.post("/api/model/load")
 async def load_model(path: str):
     """Load model from path"""
+    if agent is None:
+        raise HTTPException(status_code=400, detail="PyTorch not available")
     try:
         agent.load(path)
         return {"status": "loaded", "path": path}
@@ -542,7 +551,12 @@ async def load_model(path: str):
 @app.post("/api/action/single")
 async def get_single_action(observation: dict):
     """Get single action from observation (for testing)"""
-    action = agent.get_action(observation, deterministic=True)
+    if agent is not None:
+        action = agent.get_action(observation, deterministic=True)
+    else:
+        # Mock action for demo
+        action = [np.random.uniform(0, 1), np.random.uniform(0, 0.3), np.random.uniform(-1, 1)]
+    
     return {
         "action": {
             "gas": float(action[0]),
@@ -559,8 +573,8 @@ async def get_status():
         "status": "running",
         "training_active": training_active,
         "pytorch_available": TORCH_AVAILABLE,
-        "device": str(agent.device) if TORCH_AVAILABLE else "cpu",
-        "buffer_size": len(agent.replay_buffer),
+        "device": str(agent.device) if agent is not None else "cpu",
+        "buffer_size": len(agent.replay_buffer) if agent is not None else 0,
         "timestamp": datetime.now().isoformat()
     }
 

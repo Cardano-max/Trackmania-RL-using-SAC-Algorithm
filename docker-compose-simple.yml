@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  # Environment Container - TrackMania Simulation
+  environment:
+    build:
+      context: .
+      dockerfile: Dockerfile.environment
+    container_name: trackmania-environment
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - shared_data:/data
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - trackmania-net
+
+  # Model Container - SAC Agent
+  model:
+    build:
+      context: .
+      dockerfile: Dockerfile.model
+    container_name: trackmania-model
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - shared_data:/data
+    ports:
+      - "8081:8081"
+    depends_on:
+      - environment
+    restart: unless-stopped
+    networks:
+      - trackmania-net
+
+  # Viewer Container - Race Visualization
+  viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+    container_name: trackmania-viewer
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - shared_data:/data
+    ports:
+      - "3000:3000"
+    depends_on:
+      - environment
+      - model
+    restart: unless-stopped
+    networks:
+      - trackmania-net
+
+volumes:
+  shared_data:
+    driver: local
+
+networks:
+  trackmania-net:
+    driver: bridge

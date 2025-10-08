@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete TrackMania RL + 3D Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #000; 
+            color: white; 
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #racing-canvas {
+            display: block;
+        }
+        
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.5em;
+            color: #3498db;
+        }
+        
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active { background: #2ecc71; animation: pulse 2s infinite; }
+        .status-inactive { background: #e74c3c; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #7f8c8d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .left-panel {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            width: 350px;
+            height: calc(100vh - 60px);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            z-index: 100;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .right-panel {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            width: 300px;
+            height: calc(100vh - 60px);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            z-index: 100;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .panel-section {
+            margin-bottom: 25px;
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .panel-section h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #3498db;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+            font-size: 1.1em;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 0.9em;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .car-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            border-left: 4px solid var(--car-color);
+        }
+        
+        .car-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .car-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        
+        .car-name {
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+        
+        .position-badge {
+            background: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: auto;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin: 15px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .rl-metrics {
+            font-size: 0.85em;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .main-view {
+            position: absolute;
+            top: 60px;
+            left: 350px;
+            right: 300px;
+            bottom: 0;
+            background: #001122;
+        }
+        
+        .view-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 200;
+        }
+        
+        .learning-insight {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 8px 0;
+            font-size: 0.85em;
+        }
+        
+        .insight-title {
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏁 TrackMania RL + 3D Racing System</h1>
+            <div class="status-info">
+                <div>
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="systemStatus">Connecting...</span>
+                </div>
+                <div>Time: <span id="simulationTime">0:00</span></div>
+                <div class="controls">
+                    <button class="btn" id="startBtn" onclick="startSimulation()">🚀 Start Training</button>
+                    <button class="btn" id="stopBtn" onclick="stopSimulation()" disabled>⏹️ Stop</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Left Panel - RL Metrics -->
+        <div class="left-panel">
+            <div class="panel-section">
+                <h3>🧠 RL Learning Progress</h3>
+                <div id="learningMetrics"></div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>📈 Learning Curves</h3>
+                <div class="chart-container">
+                    <canvas id="learningChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>🎯 Exploration Rates</h3>
+                <div class="chart-container">
+                    <canvas id="explorationChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>💡 Learning Insights</h3>
+                <div id="learningInsights"></div>
+            </div>
+        </div>
+        
+        <!-- Main 3D View -->
+        <div class="main-view">
+            <canvas id="racing-canvas"></canvas>
+            <div class="view-controls">
+                <button class="btn" onclick="setCameraView('overhead')">📊 Overhead</button>
+                <button class="btn" onclick="setCameraView('follow')">🏎️ Follow</button>
+                <button class="btn" onclick="setCameraView('trackside')">🎥 Trackside</button>
+                <button class="btn" onclick="resetCamera()">🔄 Reset</button>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Race Data -->
+        <div class="right-panel">
+            <div class="panel-section">
+                <h3>🏆 Live Leaderboard</h3>
+                <div id="leaderboard"></div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>📊 Race Statistics</h3>
+                <div id="raceStats"></div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>🎮 Car Telemetry</h3>
+                <div id="carTelemetry"></div>
+            </div>
+            
+            <div class="panel-section">
+                <h3>⚡ Performance Chart</h3>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let cars = {};
+        let trackMesh, trackGroup;
+        let ws = null;
+        let cameraMode = 'overhead';
+        
+        // Charts
+        let learningChart, explorationChart, performanceChart;
+        
+        // Initialize complete system
+        function initializeSystem() {
+            init3DScene();
+            initializeCharts();
+            connectWebSocket();
+        }
+        
+        // 3D Scene Setup
+        function init3DScene() {
+            const canvas = document.getElementById('racing-canvas');
+            const container = canvas.parentElement;
+            
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x001122);
+            scene.fog = new THREE.Fog(0x001122, 1000, 5000);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 10000);
+            setCameraView('overhead');
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(200, 400, 100);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 4096;
+            directionalLight.shadow.mapSize.height = 4096;
+            directionalLight.shadow.camera.near = 1;
+            directionalLight.shadow.camera.far = 2000;
+            directionalLight.shadow.camera.left = -1000;
+            directionalLight.shadow.camera.right = 1000;
+            directionalLight.shadow.camera.top = 1000;
+            directionalLight.shadow.camera.bottom = -1000;
+            scene.add(directionalLight);
+            
+            // Additional lights
+            const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x362d1d, 0.3);
+            scene.add(hemisphereLight);
+            
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // Handle resize
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // Animation loop
+            animate();
+        }
+        
+        function createAdvancedTrack(trackData) {
+            if (trackGroup) {
+                scene.remove(trackGroup);
+            }
+            
+            trackGroup = new THREE.Group();
+            
+            // Track surface
+            const trackGeometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const normals = [];
+            
+            for (let i = 0; i < trackData.length - 1; i++) {
+                const current = trackData[i];
+                const next = trackData[i + 1];
+                
+                const trackWidth = 25;
+                
+                // Calculate track direction and perpendicular
+                const dx = next.x - current.x;
+                const dy = next.y - current.y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const perpX = -dy / length * trackWidth;
+                const perpY = dx / length * trackWidth;
+                
+                // Create track quad with elevation
+                const vertices = [
+                    [current.x - perpX, current.z, current.y - perpY],
+                    [current.x + perpX, current.z, current.y + perpY],
+                    [next.x - perpX, next.z, next.y - perpY],
+                    [next.x + perpX, next.z, next.y + perpY]
+                ];
+                
+                // Add triangles
+                positions.push(...vertices[0], ...vertices[1], ...vertices[2]);
+                positions.push(...vertices[1], ...vertices[3], ...vertices[2]);
+                
+                // Track colors
+                const baseColor = current.checkpoint ? [0.8, 0.8, 0.9] : [0.4, 0.4, 0.5];
+                for (let j = 0; j < 6; j++) {
+                    colors.push(...baseColor);
+                }
+                
+                // Normals (simplified upward)
+                for (let j = 0; j < 6; j++) {
+                    normals.push(0, 1, 0);
+                }
+            }
+            
+            trackGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            trackGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            trackGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            
+            const trackMaterial = new THREE.MeshLambertMaterial({ 
+                vertexColors: true,
+                side: THREE.DoubleSide 
+            });
+            
+            trackMesh = new THREE.Mesh(trackGeometry, trackMaterial);
+            trackMesh.receiveShadow = true;
+            trackGroup.add(trackMesh);
+            
+            // Add track features
+            addTrackFeatures(trackData);
+            
+            scene.add(trackGroup);
+        }
+        
+        function addTrackFeatures(trackData) {
+            // Start/finish line
+            const startPoint = trackData.find(point => point.start_finish);
+            if (startPoint) {
+                const lineGeometry = new THREE.PlaneGeometry(30, 2);
+                const lineMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const startLine = new THREE.Mesh(lineGeometry, lineMaterial);
+                startLine.position.set(startPoint.x, startPoint.z + 0.1, startPoint.y);
+                startLine.rotation.x = -Math.PI / 2;
+                trackGroup.add(startLine);
+            }
+            
+            // Barriers and environment
+            const barrierGeometry = new THREE.BoxGeometry(2, 8, 2);
+            const barrierMaterial = new THREE.MeshLambertMaterial({ color: 0xff4444 });
+            
+            for (let i = 0; i < trackData.length; i += 8) {
+                const point = trackData[i];
+                
+                // Safety barriers
+                const barrier1 = new THREE.Mesh(barrierGeometry, barrierMaterial);
+                barrier1.position.set(point.x - 35, point.z + 4, point.y);
+                barrier1.castShadow = true;
+                trackGroup.add(barrier1);
+                
+                const barrier2 = new THREE.Mesh(barrierGeometry, barrierMaterial);
+                barrier2.position.set(point.x + 35, point.z + 4, point.y);
+                barrier2.castShadow = true;
+                trackGroup.add(barrier2);
+            }
+            
+            // Grandstands
+            const grandstandGeometry = new THREE.BoxGeometry(100, 20, 15);
+            const grandstandMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
+            const grandstand = new THREE.Mesh(grandstandGeometry, grandstandMaterial);
+            grandstand.position.set(0, 10, -60);
+            grandstand.castShadow = true;
+            trackGroup.add(grandstand);
+        }
+        
+        function createAdvancedCar(carData) {
+            const carGroup = new THREE.Group();
+            
+            // Car body (more detailed)
+            const bodyGeometry = new THREE.BoxGeometry(6, 2.5, 12);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: carData.color,
+                shininess: 100,
+                specular: 0x222222
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 1.25;
+            body.castShadow = true;
+            carGroup.add(body);
+            
+            // Cockpit
+            const cockpitGeometry = new THREE.BoxGeometry(4, 1.5, 3);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x333333,
+                transparent: true,
+                opacity: 0.8
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.position.set(0, 2.75, 1);
+            carGroup.add(cockpit);
+            
+            // Wings
+            const wingGeometry = new THREE.BoxGeometry(8, 0.2, 1);
+            const wingMaterial = new THREE.MeshPhongMaterial({ color: carData.color });
+            
+            const frontWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            frontWing.position.set(0, 0.5, -5);
+            carGroup.add(frontWing);
+            
+            const rearWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rearWing.position.set(0, 3, 5);
+            carGroup.add(rearWing);
+            
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(1.2, 1.2, 1.5, 12);
+            const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
+            
+            const wheels = [];
+            const wheelPositions = [
+                [-2.5, 0, -4], [2.5, 0, -4], [-2.5, 0, 4], [2.5, 0, 4]
+            ];
+            
+            wheelPositions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.position.set(pos[0], pos[1], pos[2]);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.castShadow = true;
+                carGroup.add(wheel);
+                wheels.push(wheel);
+            });
+            
+            // Exhaust flames (when accelerating)
+            const flameGeometry = new THREE.ConeGeometry(0.3, 2, 8);
+            const flameMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff4400,
+                transparent: true,
+                opacity: 0.7
+            });
+            const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+            flame.position.set(0, 1, 7);
+            flame.rotation.x = Math.PI / 2;
+            flame.visible = false;
+            carGroup.add(flame);
+            
+            // Store references
+            carGroup.userData = {
+                wheels: wheels,
+                flame: flame,
+                carData: carData
+            };
+            
+            return carGroup;
+        }
+        
+        function updateCars(carsData) {
+            carsData.forEach(carData => {
+                if (!cars[carData.id]) {
+                    cars[carData.id] = createAdvancedCar(carData);
+                    scene.add(cars[carData.id]);
+                }
+                
+                const carMesh = cars[carData.id];
+                const pos = carData.position;
+                
+                // Update position and rotation
+                carMesh.position.set(pos.x, pos.z + 1, pos.y);
+                carMesh.rotation.y = -pos.heading;
+                carMesh.rotation.z = pos.banking * Math.PI / 180 * 0.5;
+                
+                // Animate wheels
+                const wheelSpeed = carData.speed * 0.05;
+                carMesh.userData.wheels.forEach((wheel, index) => {
+                    wheel.rotation.x += wheelSpeed;
+                    
+                    // Steering on front wheels
+                    if (index < 2) {
+                        wheel.rotation.y = carData.steering * 0.4;
+                    }
+                });
+                
+                // Exhaust flame when accelerating
+                const flame = carMesh.userData.flame;
+                flame.visible = carData.throttle > 0.7;
+                flame.scale.y = carData.throttle;
+                
+                // Car bobbing effect
+                carMesh.position.y += Math.sin(Date.now() * 0.01 + carData.id.charCodeAt(0)) * 0.1;
+            });
+        }
+        
+        function setCameraView(mode) {
+            cameraMode = mode;
+            
+            switch(mode) {
+                case 'overhead':
+                    camera.position.set(0, 800, 0);
+                    camera.lookAt(0, 0, 0);
+                    controls.target.set(0, 0, 0);
+                    break;
+                case 'follow':
+                    // Will be set dynamically to follow lead car
+                    break;
+                case 'trackside':
+                    camera.position.set(-200, 50, 200);
+                    camera.lookAt(0, 0, 0);
+                    controls.target.set(0, 0, 0);
+                    break;
+            }
+            
+            controls.update();
+        }
+        
+        function initializeCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        labels: { color: 'white', font: { size: 10 } },
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    x: { 
+                        ticks: { color: 'white', font: { size: 9 } }, 
+                        grid: { color: 'rgba(255,255,255,0.1)' } 
+                    },
+                    y: { 
+                        ticks: { color: 'white', font: { size: 9 } }, 
+                        grid: { color: 'rgba(255,255,255,0.1)' } 
+                    }
+                },
+                animation: { duration: 0 }
+            };
+            
+            // Learning chart
+            learningChart = new Chart(document.getElementById('learningChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            // Exploration chart
+            explorationChart = new Chart(document.getElementById('explorationChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            // Performance chart
+            performanceChart = new Chart(document.getElementById('performanceChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+        }
+        
+        function updateInterface(data) {
+            // Update header status
+            document.getElementById('systemStatus').textContent = 
+                data.simulation_active ? 'Training Active' : 'Ready';
+            document.getElementById('statusIndicator').className = 
+                'status-indicator ' + (data.simulation_active ? 'status-active' : 'status-inactive');
+            
+            // Update simulation time
+            const minutes = Math.floor(data.simulation_time / 60);
+            const seconds = Math.floor(data.simulation_time % 60);
+            document.getElementById('simulationTime').textContent = 
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update buttons
+            document.getElementById('startBtn').disabled = data.simulation_active;
+            document.getElementById('stopBtn').disabled = !data.simulation_active;
+            
+            // Update panels
+            updateLearningMetrics(data);
+            updateLeaderboard(data.cars);
+            updateRaceStats(data);
+            updateCarTelemetry(data.cars);
+            updateCharts(data);
+            updateLearningInsights(data);
+            
+            // Update 3D scene
+            if (data.track && !trackMesh) {
+                createAdvancedTrack(data.track);
+            }
+            if (data.cars) {
+                updateCars(data.cars);
+                updateCameraFollow(data.cars);
+            }
+        }
+        
+        function updateLearningMetrics(data) {
+            const container = document.getElementById('learningMetrics');
+            container.innerHTML = '';
+            
+            Object.values(data.learning_summary || {}).forEach(agent => {
+                const metricDiv = document.createElement('div');
+                metricDiv.className = 'car-card';
+                metricDiv.style.setProperty('--car-color', '#3498db');
+                
+                metricDiv.innerHTML = `
+                    <div class="car-header">
+                        <span class="car-name">${agent.name}</span>
+                    </div>
+                    <div class="rl-metrics">
+                        <div class="metric">
+                            <span>Episodes:</span>
+                            <span class="metric-value">${agent.episodes_completed}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Q-States:</span>
+                            <span class="metric-value">${agent.total_q_states}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Exploration:</span>
+                            <span class="metric-value">${(agent.exploration_rate * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="metric">
+                            <span>Progress:</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${agent.learning_progress * 100}%"></div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(metricDiv);
+            });
+        }
+        
+        function updateLeaderboard(cars) {
+            const container = document.getElementById('leaderboard');
+            container.innerHTML = '';
+            
+            const sortedCars = [...cars].sort((a, b) => a.race_position - b.race_position);
+            
+            sortedCars.forEach(car => {
+                const carDiv = document.createElement('div');
+                carDiv.className = 'car-card';
+                carDiv.style.setProperty('--car-color', car.color);
+                
+                const bestLap = car.best_lap > 0 ? formatTime(car.best_lap) : '--:--';
+                
+                carDiv.innerHTML = `
+                    <div class="car-header">
+                        <div class="car-color" style="background: ${car.color}"></div>
+                        <span class="car-name">${car.name}</span>
+                        <span class="position-badge">${car.race_position}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Speed:</span>
+                        <span class="metric-value">${car.speed.toFixed(0)} km/h</span>
+                    </div>
+                    <div class="metric">
+                        <span>Lap:</span>
+                        <span class="metric-value">${car.lap_count + 1}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Best Lap:</span>
+                        <span class="metric-value">${bestLap}</span>
+                    </div>
+                `;
+                
+                container.appendChild(carDiv);
+            });
+        }
+        
+        function updateRaceStats(data) {
+            const container = document.getElementById('raceStats');
+            const totalEpisodes = Object.values(data.learning_summary || {})
+                .reduce((sum, agent) => sum + agent.episodes_completed, 0);
+            
+            container.innerHTML = `
+                <div class="metric">
+                    <span>Total Episodes:</span>
+                    <span class="metric-value">${totalEpisodes}</span>
+                </div>
+                <div class="metric">
+                    <span>Active Cars:</span>
+                    <span class="metric-value">${data.cars ? data.cars.length : 0}</span>
+                </div>
+                <div class="metric">
+                    <span>Track Length:</span>
+                    <span class="metric-value">4.0 km</span>
+                </div>
+                <div class="metric">
+                    <span>Simulation Rate:</span>
+                    <span class="metric-value">20 FPS</span>
+                </div>
+            `;
+        }
+        
+        function updateCarTelemetry(cars) {
+            const container = document.getElementById('carTelemetry');
+            container.innerHTML = '';
+            
+            if (cars && cars.length > 0) {
+                const car = cars[0]; // Show telemetry for lead car
+                
+                container.innerHTML = `
+                    <div style="color: ${car.color}; font-weight: bold; margin-bottom: 10px;">
+                        ${car.name}
+                    </div>
+                    <div class="metric">
+                        <span>Throttle:</span>
+                        <span class="metric-value">${(car.throttle * 100).toFixed(0)}%</span>
+                    </div>
+                    <div class="metric">
+                        <span>Brake:</span>
+                        <span class="metric-value">${(car.brake * 100).toFixed(0)}%</span>
+                    </div>
+                    <div class="metric">
+                        <span>Steering:</span>
+                        <span class="metric-value">${(car.steering * 100).toFixed(0)}%</span>
+                    </div>
+                    <div class="metric">
+                        <span>Gear:</span>
+                        <span class="metric-value">${car.gear}</span>
+                    </div>
+                    <div class="metric">
+                        <span>RPM:</span>
+                        <span class="metric-value">${car.rpm.toFixed(0)}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Reward:</span>
+                        <span class="metric-value">${car.current_reward.toFixed(1)}</span>
+                    </div>
+                `;
+            }
+        }
+        
+        function updateCharts(data) {
+            if (!data.episode_data || data.episode_data.length === 0) return;
+            
+            const timeLabels = data.episode_data.map((_, i) => i);
+            
+            // Learning curves
+            const learningDatasets = Object.keys(data.learning_summary || {}).map(agentId => {
+                const agent = data.learning_summary[agentId];
+                return {
+                    label: agent.name,
+                    data: data.episode_data.map(ep => ep.agents[agentId]?.avg_reward || 0),
+                    borderColor: data.cars?.find(c => c.id === agentId)?.color || '#666',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0
+                };
+            });
+            
+            learningChart.data.labels = timeLabels;
+            learningChart.data.datasets = learningDatasets;
+            learningChart.update('none');
+            
+            // Exploration rates
+            const explorationDatasets = Object.keys(data.learning_summary || {}).map(agentId => {
+                return {
+                    label: data.learning_summary[agentId].name,
+                    data: data.episode_data.map(ep => (ep.agents[agentId]?.exploration_rate || 0) * 100),
+                    borderColor: data.cars?.find(c => c.id === agentId)?.color || '#666',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0
+                };
+            });
+            
+            explorationChart.data.labels = timeLabels;
+            explorationChart.data.datasets = explorationDatasets;
+            explorationChart.update('none');
+            
+            // Performance (speeds)
+            const performanceDatasets = (data.cars || []).map(car => ({
+                label: car.name,
+                data: data.episode_data.slice(-20).map(() => car.speed),
+                borderColor: car.color,
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 0
+            }));
+            
+            performanceChart.data.labels = timeLabels.slice(-20);
+            performanceChart.data.datasets = performanceDatasets;
+            performanceChart.update('none');
+        }
+        
+        function updateLearningInsights(data) {
+            const container = document.getElementById('learningInsights');
+            container.innerHTML = '';
+            
+            // Generate insights based on data
+            const insights = [];
+            
+            Object.values(data.learning_summary || {}).forEach(agent => {
+                if (agent.performance_trend === 'improving') {
+                    insights.push({
+                        title: 'Learning Progress',
+                        message: `${agent.name} is improving performance`
+                    });
+                }
+                
+                if (agent.exploration_rate < 0.1) {
+                    insights.push({
+                        title: 'Exploitation Phase',
+                        message: `${agent.name} using learned strategies`
+                    });
+                }
+            });
+            
+            if (insights.length === 0) {
+                insights.push({
+                    title: 'Training Active',
+                    message: 'Agents are learning racing strategies'
+                });
+            }
+            
+            insights.forEach(insight => {
+                const insightDiv = document.createElement('div');
+                insightDiv.className = 'learning-insight';
+                insightDiv.innerHTML = `
+                    <div class="insight-title">${insight.title}</div>
+                    <div>${insight.message}</div>
+                `;
+                container.appendChild(insightDiv);
+            });
+        }
+        
+        function updateCameraFollow(cars) {
+            if (cameraMode === 'follow' && cars && cars.length > 0) {
+                // Follow the leading car
+                const leadCar = cars.find(car => car.race_position === 1);
+                if (leadCar) {
+                    const pos = leadCar.position;
+                    camera.position.set(pos.x - 50, pos.z + 30, pos.y + 30);
+                    camera.lookAt(pos.x, pos.z, pos.y);
+                    controls.target.set(pos.x, pos.z, pos.y);
+                }
+            }
+        }
+        
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                updateInterface(data);
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected. Reconnecting...');
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (controls) {
+                controls.update();
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        function onWindowResize() {
+            const container = document.getElementById('racing-canvas').parentElement;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+        
+        function resetCamera() {
+            setCameraView('overhead');
+        }
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(1);
+            return `${mins}:${secs.padStart(4, '0')}`;
+        }
+        
+        async function startSimulation() {
+            try {
+                const response = await fetch('/api/simulation/start', { method: 'POST' });
+                console.log('Simulation started');
+            } catch (error) {
+                console.error('Error starting simulation:', error);
+            }
+        }
+        
+        async function stopSimulation() {
+            try {
+                const response = await fetch('/api/simulation/stop', { method: 'POST' });
+                console.log('Simulation stopped');
+            } catch (error) {
+                console.error('Error stopping simulation:', error);
+            }
+        }
+        
+        // Initialize everything
+        initializeSystem();
+        
+        // Auto-start simulation for demo
+        setTimeout(() => {
+            startSimulation();
+        }, 3000);
+    </script>
+</body>
+</html>

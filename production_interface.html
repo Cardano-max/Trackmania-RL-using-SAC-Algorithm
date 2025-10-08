@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🏁 Production TrackMania RL System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white; 
+            overflow: hidden;
+        }
+        
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #left-panel {
+            width: 380px;
+            background: rgba(0,0,0,0.85);
+            padding: 15px;
+            overflow-y: auto;
+            border-right: 3px solid #3498db;
+            backdrop-filter: blur(15px);
+        }
+        
+        #racing-canvas {
+            flex: 1;
+            height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .header h2 {
+            margin: 0;
+            font-size: 1.4em;
+            background: linear-gradient(45deg, #3498db, #e74c3c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .system-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(155, 89, 182, 0.1));
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stat-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 2px;
+        }
+        
+        .stat-label {
+            font-size: 0.8em;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .weather-info {
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(26, 188, 156, 0.1));
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+        
+        .chart-container {
+            height: 160px;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .chart-container h4 {
+            margin: 0 0 8px 0;
+            font-size: 0.9em;
+            color: #3498db;
+            text-align: center;
+        }
+        
+        .mini-chart {
+            height: 120px;
+            margin: 8px 0;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            padding: 6px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .agent-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+            border-radius: 12px;
+            padding: 12px;
+            margin: 8px 0;
+            border-left: 4px solid;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .agent-name {
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+        
+        .learning-indicator {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .exploring { 
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .exploiting { 
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            color: white;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .metric-item {
+            font-size: 0.8em;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .telemetry-section {
+            background: rgba(231, 76, 60, 0.1);
+            border-radius: 8px;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        
+        .telemetry-item {
+            text-align: center;
+            font-size: 0.8em;
+        }
+        
+        .telemetry-value {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 1.1em;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active { 
+            background: #2ecc71; 
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+        }
+        
+        .status-inactive { 
+            background: #e74c3c;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.5);
+        }
+        
+        .btn:disabled {
+            background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .performance-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 4px 0;
+        }
+        
+        .performance-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e74c3c, #f39c12, #2ecc71);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #3498db transparent;
+        }
+        
+        .scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollbar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: #3498db;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="left-panel" class="scrollbar">
+            <div class="header">
+                <h2>🏁 Production TrackMania RL</h2>
+                <div>
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="systemStatus">Connecting...</span>
+                </div>
+            </div>
+            
+            <div class="system-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalEpisodes">0</div>
+                    <div class="stat-label">Episodes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="systemMaturity">0%</div>
+                    <div class="stat-label">Maturity</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalQStates">0</div>
+                    <div class="stat-label">Q-States</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgConsistency">0%</div>
+                    <div class="stat-label">Consistency</div>
+                </div>
+            </div>
+            
+            <div class="weather-info">
+                <h4>🌤️ Track Conditions</h4>
+                <div id="weatherStatus">Perfect Racing Weather</div>
+                <div style="font-size: 0.8em; margin-top: 5px;">
+                    Grip: <span id="gripFactor">100%</span> | 
+                    Visibility: <span id="visibility">100%</span>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h4>📈 Performance Evolution</h4>
+                <canvas id="performanceChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h4>🧠 Learning Distribution</h4>
+                <canvas id="learningChart"></canvas>
+            </div>
+            
+            <div class="mini-chart">
+                <h4>🔧 Q-Value Convergence</h4>
+                <canvas id="qValueChart"></canvas>
+            </div>
+            
+            <div class="mini-chart">
+                <h4>⚡ Policy Optimization</h4>
+                <canvas id="policyChart"></canvas>
+            </div>
+            
+            <div id="agentCards"></div>
+            
+            <div class="mini-chart">
+                <h4>🏎️ Lap Time Progression</h4>
+                <canvas id="lapTimeChart"></canvas>
+            </div>
+        </div>
+        
+        <canvas id="racing-canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button class="btn" id="startBtn" onclick="startSimulation()">🚀 Start Production RL</button>
+        <button class="btn" id="stopBtn" onclick="stopSimulation()" disabled>⏹️ Stop</button>
+        <button class="btn" onclick="resetCamera()">📷 Reset View</button>
+        <button class="btn" onclick="switchCameraMode()">🎥 Camera Mode</button>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let cars = {};
+        let trackMesh, trackEnvironment;
+        let ws = null;
+        let cameraMode = 'overview'; // overview, follow, trackside
+        
+        // Charts
+        let performanceChart, learningChart, qValueChart, policyChart, lapTimeChart;
+        
+        // Initialize 3D scene with enhanced graphics
+        function init3DScene() {
+            const canvas = document.getElementById('racing-canvas');
+            
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+            scene.fog = new THREE.Fog(0x87CEEB, 1000, 5000);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, canvas.clientWidth / canvas.clientHeight, 1, 10000);
+            camera.position.set(0, 400, 800);
+            
+            // Renderer with enhanced settings
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            
+            // Enhanced lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            sunLight.position.set(200, 500, 100);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 4096;
+            sunLight.shadow.mapSize.height = 4096;
+            sunLight.shadow.camera.near = 1;
+            sunLight.shadow.camera.far = 2000;
+            sunLight.shadow.camera.left = -1000;
+            sunLight.shadow.camera.right = 1000;
+            sunLight.shadow.camera.top = 1000;
+            sunLight.shadow.camera.bottom = -1000;
+            scene.add(sunLight);
+            
+            // Fill light
+            const fillLight = new THREE.DirectionalLight(0x9fc5e8, 0.5);
+            fillLight.position.set(-200, 300, -100);
+            scene.add(fillLight);
+            
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2.1;
+            controls.minDistance = 50;
+            controls.maxDistance = 2000;
+            
+            // Add environment
+            addEnvironment();
+            
+            animate();
+        }
+        
+        function addEnvironment() {
+            // Ground plane
+            const groundGeometry = new THREE.PlaneGeometry(5000, 5000);
+            const groundMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x4a6741,
+                transparent: true,
+                opacity: 0.8
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -5;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            
+            // Sky dome
+            const skyGeometry = new THREE.SphereGeometry(4000, 32, 32);
+            const skyMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x87CEEB,
+                side: THREE.BackSide
+            });
+            const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+            scene.add(sky);
+        }
+        
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false },
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: 'rgba(255,255,255,0.1)' }, 
+                        ticks: { color: 'white', font: { size: 10 } }
+                    },
+                    x: { 
+                        grid: { color: 'rgba(255,255,255,0.1)' }, 
+                        ticks: { color: 'white', font: { size: 10 } }
+                    }
+                },
+                plugins: { 
+                    legend: { 
+                        labels: { color: 'white', font: { size: 10 } },
+                        position: 'top'
+                    }
+                }
+            };
+            
+            // Performance Chart
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(performanceCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            // Learning Distribution Chart
+            const learningCtx = document.getElementById('learningChart').getContext('2d');
+            learningChart = new Chart(learningCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Exploring', 'Exploiting'],
+                    datasets: [{
+                        data: [50, 50],
+                        backgroundColor: [
+                            'rgba(231, 76, 60, 0.8)',
+                            'rgba(46, 204, 113, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(231, 76, 60, 1)',
+                            'rgba(46, 204, 113, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            labels: { color: 'white', font: { size: 9 } },
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            
+            // Q-Value Chart
+            const qValueCtx = document.getElementById('qValueChart').getContext('2d');
+            qValueChart = new Chart(qValueCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            // Policy Chart
+            const policyCtx = document.getElementById('policyChart').getContext('2d');
+            policyChart = new Chart(policyCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+            
+            // Lap Time Chart
+            const lapTimeCtx = document.getElementById('lapTimeChart').getContext('2d');
+            lapTimeChart = new Chart(lapTimeCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartOptions
+            });
+        }
+        
+        function createEnhancedTrack(trackData) {
+            if (trackMesh) {
+                scene.remove(trackMesh);
+            }
+            
+            const trackGroup = new THREE.Group();
+            
+            // Track surface
+            const trackGeometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const normals = [];
+            
+            for (let i = 0; i < trackData.length - 1; i++) {
+                const current = trackData[i];
+                const next = trackData[i + 1];
+                
+                const trackWidth = 18;
+                const bankingAngle = current.banking * Math.PI / 180;
+                
+                // Calculate track surface with banking
+                const dx = next.x - current.x;
+                const dy = next.y - current.y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                
+                if (length > 0) {
+                    const perpX = -dy / length * trackWidth;
+                    const perpY = dx / length * trackWidth;
+                    
+                    // Apply banking
+                    const bankingX = perpX * Math.cos(bankingAngle);
+                    const bankingZ = perpX * Math.sin(bankingAngle) * 0.5;
+                    
+                    // Create track quad
+                    positions.push(
+                        current.x - bankingX, current.z + bankingZ, current.y - perpY,
+                        current.x + bankingX, current.z - bankingZ, current.y + perpY,
+                        next.x - bankingX, next.z + bankingZ, next.y - perpY,
+                        next.x + bankingX, next.z - bankingZ, next.y + perpY
+                    );
+                    
+                    // Track surface colors
+                    const gripColor = current.grip_factor || 1.0;
+                    const r = 0.3 + gripColor * 0.2;
+                    const g = 0.3 + gripColor * 0.2;
+                    const b = 0.3 + gripColor * 0.2;
+                    
+                    for (let j = 0; j < 4; j++) {
+                        colors.push(r, g, b);
+                    }
+                    
+                    // Normals for lighting
+                    for (let j = 0; j < 4; j++) {
+                        normals.push(0, 1, 0);
+                    }
+                }
+            }
+            
+            trackGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            trackGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            trackGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            
+            const trackMaterial = new THREE.MeshLambertMaterial({ 
+                vertexColors: true,
+                side: THREE.DoubleSide
+            });
+            
+            const track = new THREE.Mesh(trackGeometry, trackMaterial);
+            track.receiveShadow = true;
+            trackGroup.add(track);
+            
+            // Add track markings and barriers
+            addTrackFeatures(trackGroup, trackData);
+            
+            trackMesh = trackGroup;
+            scene.add(trackMesh);
+        }
+        
+        function addTrackFeatures(trackGroup, trackData) {
+            // Racing line
+            const lineGeometry = new THREE.BufferGeometry();
+            const linePositions = [];
+            
+            trackData.forEach((point, index) => {
+                if (index % 3 === 0) { // Every 3rd point
+                    linePositions.push(point.x, point.z + 0.1, point.y);
+                }
+            });
+            
+            lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+            
+            const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xffffff, 
+                linewidth: 3,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const racingLine = new THREE.Line(lineGeometry, lineMaterial);
+            trackGroup.add(racingLine);
+            
+            // Barriers and checkpoints
+            trackData.forEach((point, index) => {
+                if (point.checkpoint) {
+                    const checkpointGeometry = new THREE.CylinderGeometry(2, 2, 15, 8);
+                    const checkpointMaterial = new THREE.MeshLambertMaterial({ 
+                        color: 0x00ff00,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const checkpoint = new THREE.Mesh(checkpointGeometry, checkpointMaterial);
+                    checkpoint.position.set(point.x, point.z + 7.5, point.y);
+                    trackGroup.add(checkpoint);
+                }
+            });
+        }
+        
+        function createRealisticCar(carData) {
+            const carGroup = new THREE.Group();
+            
+            // Main car body (Formula 1 style)
+            const bodyGeometry = new THREE.BoxGeometry(4, 1.5, 10);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: carData.color,
+                shininess: 100,
+                specular: 0x444444
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.75;
+            body.castShadow = true;
+            carGroup.add(body);
+            
+            // Cockpit
+            const cockpitGeometry = new THREE.BoxGeometry(2.5, 0.8, 4);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x222222,
+                transparent: true,
+                opacity: 0.8
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.position.set(0, 1.8, -1);
+            carGroup.add(cockpit);
+            
+            // Front wing
+            const frontWingGeometry = new THREE.BoxGeometry(6, 0.2, 1);
+            const frontWingMaterial = new THREE.MeshPhongMaterial({ color: carData.color });
+            const frontWing = new THREE.Mesh(frontWingGeometry, frontWingMaterial);
+            frontWing.position.set(0, 0.3, 4.5);
+            carGroup.add(frontWing);
+            
+            // Rear wing
+            const rearWingGeometry = new THREE.BoxGeometry(4, 2, 0.5);
+            const rearWingMaterial = new THREE.MeshPhongMaterial({ color: carData.color });
+            const rearWing = new THREE.Mesh(rearWingGeometry, rearWingMaterial);
+            rearWing.position.set(0, 2.5, -4.5);
+            carGroup.add(rearWing);
+            
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.8, 16);
+            const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 });
+            
+            const wheelPositions = [
+                [-2.5, 0, -3.5], [2.5, 0, -3.5], // Rear wheels
+                [-2.5, 0, 3.5], [2.5, 0, 3.5]   // Front wheels
+            ];
+            
+            const wheels = [];
+            wheelPositions.forEach((pos, index) => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.position.set(pos[0], pos[1], pos[2]);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.castShadow = true;
+                carGroup.add(wheel);
+                wheels.push(wheel);
+            });
+            
+            // Learning indicator (LED strip)
+            const indicatorGeometry = new THREE.BoxGeometry(4, 0.2, 0.3);
+            const indicatorMaterial = new THREE.MeshBasicMaterial({ 
+                color: carData.learning_decision === 'exploiting' ? 0x00ff00 : 0xff0000,
+                transparent: true,
+                opacity: 0.9
+            });
+            const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+            indicator.position.set(0, 2.2, 0);
+            carGroup.add(indicator);
+            
+            // Store references
+            carGroup.userData.wheels = wheels;
+            carGroup.userData.indicator = indicator;
+            carGroup.userData.carData = carData;
+            
+            return carGroup;
+        }
+        
+        function updateEnhancedCars(carsData) {
+            carsData.forEach(carData => {
+                if (!cars[carData.id]) {
+                    cars[carData.id] = createRealisticCar(carData);
+                    scene.add(cars[carData.id]);
+                }
+                
+                const carMesh = cars[carData.id];
+                const pos = carData.position;
+                
+                // Update position and rotation
+                carMesh.position.set(pos.x, pos.z + 2, pos.y);
+                carMesh.rotation.y = -pos.heading;
+                carMesh.rotation.z = pos.banking * Math.PI / 180 * 0.5;
+                
+                // Animate wheels
+                const wheelSpeed = carData.speed * 0.05;
+                carMesh.userData.wheels.forEach((wheel, index) => {
+                    wheel.rotation.x += wheelSpeed;
+                    // Front wheels steering
+                    if (index >= 2) {
+                        wheel.rotation.y = carData.rl_metrics.steering * 0.5;
+                    }
+                });
+                
+                // Update learning indicator
+                const indicator = carMesh.userData.indicator;
+                const isExploiting = carData.learning_decision === 'exploiting';
+                indicator.material.color.setHex(isExploiting ? 0x00ff00 : 0xff0000);
+                indicator.material.opacity = isExploiting ? 0.9 : 0.6;
+                
+                // Add particle effects for high performance
+                if (carData.speed > 200) {
+                    addSpeedEffects(carMesh, carData);
+                }
+            });
+            
+            // Update camera follow mode
+            if (cameraMode === 'follow' && carsData.length > 0) {
+                const leadCar = carsData[0]; // First car (best performer)
+                if (cars[leadCar.id]) {
+                    const carPos = cars[leadCar.id].position;
+                    camera.position.set(carPos.x - 30, carPos.y + 20, carPos.z + 50);
+                    camera.lookAt(carPos);
+                }
+            }
+        }
+        
+        function addSpeedEffects(carMesh, carData) {
+            // Simple particle effect for high speed
+            if (!carMesh.userData.speedEffect) {
+                const particleGeometry = new THREE.BufferGeometry();
+                const particleCount = 50;
+                const positions = new Float32Array(particleCount * 3);
+                
+                for (let i = 0; i < particleCount * 3; i++) {
+                    positions[i] = (Math.random() - 0.5) * 20;
+                }
+                
+                particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                
+                const particleMaterial = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.5,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                
+                carMesh.userData.speedEffect = new THREE.Points(particleGeometry, particleMaterial);
+                carMesh.userData.speedEffect.position.set(0, 0, -8);
+                carMesh.add(carMesh.userData.speedEffect);
+            }
+        }
+        
+        function updateInterface(data) {
+            // Update status
+            document.getElementById('systemStatus').textContent = 
+                data.simulation_active ? 'Production System Active' : 'System Stopped';
+            document.getElementById('statusIndicator').className = 
+                'status-indicator ' + (data.simulation_active ? 'status-active' : 'status-inactive');
+            
+            // Update system stats
+            if (data.learning_summary) {
+                const summary = data.learning_summary;
+                document.getElementById('totalEpisodes').textContent = summary.total_episodes || 0;
+                document.getElementById('systemMaturity').textContent = (summary.system_maturity || 0) + '%';
+                document.getElementById('totalQStates').textContent = summary.total_q_states || 0;
+                document.getElementById('avgConsistency').textContent = (summary.avg_consistency || 0).toFixed(1) + '%';
+            }
+            
+            // Update weather
+            if (data.weather) {
+                document.getElementById('weatherStatus').textContent = data.weather.description || 'Perfect';
+                document.getElementById('gripFactor').textContent = ((data.weather.grip_factor || 1.0) * 100).toFixed(0) + '%';
+                document.getElementById('visibility').textContent = ((data.weather.visibility || 1.0) * 100).toFixed(0) + '%';
+            }
+            
+            // Update agent cards
+            updateProductionAgentCards(data.cars);
+            
+            // Update charts
+            updateProductionCharts(data);
+        }
+        
+        function updateProductionAgentCards(carsData) {
+            const container = document.getElementById('agentCards');
+            container.innerHTML = '';
+            
+            carsData.forEach((car, index) => {
+                const card = document.createElement('div');
+                card.className = 'agent-card';
+                card.style.borderLeftColor = car.color;
+                
+                const metrics = car.rl_metrics;
+                const performance = Math.min(100, Math.max(0, (metrics.avg_reward + 100) / 4));
+                
+                card.innerHTML = `
+                    <div class="agent-header">
+                        <div class="agent-name">${car.name}</div>
+                        <div class="learning-indicator ${car.learning_decision}">${car.learning_decision}</div>
+                    </div>
+                    <div class="performance-bar">
+                        <div class="performance-fill" style="width: ${performance}%"></div>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric-item">
+                            <span>Episode:</span>
+                            <span class="metric-value">${metrics.episode}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Convergence:</span>
+                            <span class="metric-value">${metrics.convergence_rate}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Q-States:</span>
+                            <span class="metric-value">${metrics.q_states}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Consistency:</span>
+                            <span class="metric-value">${metrics.consistency_score}%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Reward:</span>
+                            <span class="metric-value">${metrics.avg_reward.toFixed(0)}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Best Lap:</span>
+                            <span class="metric-value">${metrics.best_lap_time.toFixed(1)}s</span>
+                        </div>
+                    </div>
+                    <div class="telemetry-section">
+                        <h5 style="margin: 0 0 5px 0; color: #e74c3c;">🔧 Live Telemetry</h5>
+                        <div class="telemetry-grid">
+                            <div class="telemetry-item">
+                                <div>Speed</div>
+                                <div class="telemetry-value">${car.speed.toFixed(0)}</div>
+                                <div style="font-size: 0.7em;">km/h</div>
+                            </div>
+                            <div class="telemetry-item">
+                                <div>Tire °C</div>
+                                <div class="telemetry-value">${car.tire_temperature.toFixed(0)}</div>
+                                <div style="font-size: 0.7em;">temp</div>
+                            </div>
+                            <div class="telemetry-item">
+                                <div>Fuel</div>
+                                <div class="telemetry-value">${car.fuel_level.toFixed(0)}%</div>
+                                <div style="font-size: 0.7em;">level</div>
+                            </div>
+                            <div class="telemetry-item">
+                                <div>Throttle</div>
+                                <div class="telemetry-value">${(car.throttle * 100).toFixed(0)}%</div>
+                                <div style="font-size: 0.7em;">input</div>
+                            </div>
+                            <div class="telemetry-item">
+                                <div>Brake</div>
+                                <div class="telemetry-value">${(car.brake * 100).toFixed(0)}%</div>
+                                <div style="font-size: 0.7em;">input</div>
+                            </div>
+                            <div class="telemetry-item">
+                                <div>Steering</div>
+                                <div class="telemetry-value">${(car.steering * 100).toFixed(0)}%</div>
+                                <div style="font-size: 0.7em;">input</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        function updateProductionCharts(data) {
+            if (data.cars && data.cars.length > 0) {
+                // Update learning distribution
+                const avgExploration = data.cars.reduce((sum, car) => 
+                    sum + car.rl_metrics.exploration_rate, 0) / data.cars.length;
+                
+                learningChart.data.datasets[0].data = [
+                    avgExploration * 100,
+                    (1 - avgExploration) * 100
+                ];
+                learningChart.update('none');
+                
+                // Update line charts
+                data.cars.forEach((car, index) => {
+                    const metrics = car.rl_metrics;
+                    const color = car.color;
+                    
+                    // Performance chart
+                    if (metrics.reward_history && metrics.reward_history.length > 0) {
+                        updateLineChart(performanceChart, index, car.name, metrics.reward_history, color);
+                    }
+                    
+                    // Q-Value chart
+                    if (metrics.q_value_history && metrics.q_value_history.length > 0) {
+                        updateLineChart(qValueChart, index, car.name, metrics.q_value_history, color);
+                    }
+                    
+                    // Policy chart
+                    if (metrics.policy_loss_history && metrics.policy_loss_history.length > 0) {
+                        updateLineChart(policyChart, index, car.name, metrics.policy_loss_history, color);
+                    }
+                    
+                    // Lap time chart
+                    if (metrics.lap_time_history && metrics.lap_time_history.length > 0) {
+                        updateLineChart(lapTimeChart, index, car.name, metrics.lap_time_history, color);
+                    }
+                });
+            }
+        }
+        
+        function updateLineChart(chart, index, label, data, color) {
+            if (!chart.data.datasets[index]) {
+                chart.data.datasets[index] = {
+                    label: label,
+                    data: [],
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    tension: 0.1,
+                    fill: false,
+                    borderWidth: 2,
+                    pointRadius: 1
+                };
+            }
+            
+            chart.data.labels = data.map((_, i) => i);
+            chart.data.datasets[index].data = data;
+            chart.update('none');
+        }
+        
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            
+            ws.onopen = function() {
+                console.log('Production WebSocket connected');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.track && !trackMesh) {
+                    createEnhancedTrack(data.track);
+                }
+                
+                if (data.cars) {
+                    updateEnhancedCars(data.cars);
+                    updateInterface(data);
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected. Reconnecting...');
+                setTimeout(connectWebSocket, 2000);
+            };
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (controls) {
+                controls.update();
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        function resetCamera() {
+            cameraMode = 'overview';
+            camera.position.set(0, 400, 800);
+            camera.lookAt(0, 0, 0);
+            controls.reset();
+        }
+        
+        function switchCameraMode() {
+            cameraMode = cameraMode === 'overview' ? 'follow' : 'overview';
+            if (cameraMode === 'overview') {
+                resetCamera();
+            }
+        }
+        
+        async function startSimulation() {
+            try {
+                const response = await fetch('/api/simulation/start', { method: 'POST' });
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                console.log('Production simulation started');
+            } catch (error) {
+                console.error('Error starting simulation:', error);
+            }
+        }
+        
+        async function stopSimulation() {
+            try {
+                const response = await fetch('/api/simulation/stop', { method: 'POST' });
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                console.log('Production simulation stopped');
+            } catch (error) {
+                console.error('Error stopping simulation:', error);
+            }
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Initialize everything
+        init3DScene();
+        initCharts();
+        connectWebSocket();
+        
+        // Auto-start for demo
+        setTimeout(() => {
+            startSimulation();
+        }, 3000);
+    </script>
+</body>
+</html>
